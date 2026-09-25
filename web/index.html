@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telecom Control Center</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">TELECOM MICROSERVICE / 8080</p>
+        <h1>Control center</h1>
+        <p class="subtitle">Operate SIM, VoLTE, APN, and messaging services from one quiet console.</p>
+      </div>
+      <div class="server-state"><span class="state-dot"></span><span>API online</span></div>
+    </header>
+
+    <section class="overview" aria-label="System overview">
+      <div class="metric"><span class="metric-label">Active SIM</span><strong id="active-sim">Slot 1</strong><span class="metric-note">Ready for traffic</span></div>
+      <div class="metric"><span class="metric-label">VoLTE state</span><strong id="volte-state">Standby</strong><span class="metric-note">Call routing</span></div>
+      <div class="metric"><span class="metric-label">SIM link speed</span><strong id="connection-speed">Measuring</strong><span class="metric-note" id="connection-detail">Checking connection...</span></div>
+      <div class="metric"><span class="metric-label">Last action</span><strong id="last-action">Waiting</strong><span class="metric-note" id="last-action-time">No requests yet</span></div>
+    </section>
+
+    <section class="connection-readout" aria-label="SIM connection performance">
+      <div><p class="eyebrow">RADIO LINK TELEMETRY</p><h2>Fastest observed connection</h2><p class="connection-copy">The radio link is normally measured in milliseconds. Nanoseconds describe local atomic state writes, not internet travel time.</p></div>
+      <div class="connection-values"><div><span>Network type</span><strong id="network-type">Detecting</strong></div><div><span>Estimated download</span><strong id="download-speed">Detecting</strong></div><div><span>Round trip</span><strong id="connection-rtt">Detecting</strong></div></div>
+    </section>
+
+    <section class="latency-map" aria-labelledby="latency-map-title">
+      <div class="map-heading">
+        <div><p class="eyebrow">DIAGNOSTIC PATH MAP</p><h2 id="latency-map-title">Where the latency happens</h2></div>
+        <div class="map-legend"><span class="legend-dot atomic"></span> nanosecond state write <span class="legend-dot network"></span> request path</div>
+      </div>
+      <div class="path-map" aria-label="Request path from browser to carrier operation">
+        <div class="path-node" data-map-node="browser"><span class="node-index">01</span><strong>Browser</strong><small>fetch request</small></div>
+        <span class="path-link"></span>
+        <div class="path-node" data-map-node="api"><span class="node-index">02</span><strong>Axum API</strong><small>routing + JSON</small></div>
+        <span class="path-link"></span>
+        <div class="path-node atomic-node" data-map-node="state"><span class="node-index">03</span><strong>Atomic state</strong><small>SIM / VoLTE write</small></div>
+        <span class="path-link"></span>
+        <div class="path-node" data-map-node="carrier"><span class="node-index">04</span><strong>Carrier action</strong><small>external network</small></div>
+      </div>
+      <p class="map-status" id="map-status" role="status" aria-live="polite">Waiting for an operation. SIM and VoLTE updates use the nanosecond-scale atomic state path.</p>
+    </section>
+
+    <section class="workspace">
+      <article class="panel panel-sim">
+        <div class="panel-heading"><div class="panel-number">01</div><div><h2>SIM routing</h2><p>Move the active subscriber slot.</p></div></div>
+        <form data-endpoint="sim" class="form-stack">
+          <label for="sim-slot">Target slot</label>
+          <div class="input-action"><input id="sim-slot" name="slot" type="number" min="1" max="8" value="1" required><button type="submit">Switch slot</button></div>
+        </form>
+      </article>
+
+      <article class="panel panel-volte">
+        <div class="panel-heading"><div class="panel-number">02</div><div><h2>VoLTE switch</h2><p>Set the current call data state.</p></div></div>
+        <form data-endpoint="volte" class="form-stack">
+          <label class="switch-row" for="volte-call"><span><strong>Call in progress</strong><small>Enable VoLTE data handoff</small></span><input id="volte-call" name="in_call" type="checkbox"><span class="toggle"></span></label>
+          <button type="submit" class="button-secondary">Update VoLTE</button>
+        </form>
+      </article>
+
+      <article class="panel panel-apn">
+        <div class="panel-heading"><div class="panel-number">03</div><div><h2>APN policy</h2><p>Register a network access profile.</p></div></div>
+        <form data-endpoint="apn" class="form-grid">
+          <label>Policy name<input name="name" placeholder="Enterprise data" required></label>
+          <label class="non-ios-field">APN<input name="apn" placeholder="data.operator" required></label>
+          <label>Target OS<input id="target-os" name="os_target" value="Detecting..." readonly aria-describedby="target-os-note"></label>
+          <label>PDN type<select name="pdn_type"><option>IPv4v6</option><option>IPv4</option><option>IPv6</option></select></label>
+          <div class="ios-settings full-width" id="ios-settings" hidden>
+            <h3>Cellular &amp; LTE setup</h3>
+            <p>Enter the carrier credentials for this iPhone.</p>
+            <div class="ios-fields">
+              <label>APN<input name="ios_apn" placeholder="data.operator"></label>
+              <label>Username<input name="ios_username" autocomplete="username"></label>
+              <label>Password<input name="ios_password" type="password" autocomplete="current-password"></label>
+            </div>
+          </div>
+          <button type="submit">Register policy</button>
+        </form>
+        <p class="auto-note" id="target-os-note">Detected automatically from this device.</p>
+      </article>
+
+      <article class="panel panel-message">
+        <div class="panel-heading"><div class="panel-number">04</div><div><h2>Message relay</h2><p>Dispatch an SMS or RCS payload.</p></div></div>
+        <form data-endpoint="message" class="form-grid">
+          <label>From<input name="from" placeholder="+1 555 0100" required></label>
+          <label>To<input name="to" placeholder="+1 555 0199" required></label>
+          <label class="full-width">Message<textarea name="content" rows="3" placeholder="Type a message to dispatch" required></textarea></label>
+          <label class="check-row full-width"><input name="is_rcs" type="checkbox" checked><span>Send as RCS</span></label>
+          <button type="submit">Dispatch message</button>
+        </form>
+      </article>
+    </section>
+
+    <footer><span>TELEWEB SERVER</span><span id="feedback" role="status" aria-live="polite">Select an operation to begin.</span></footer>
+  </main>
+</body>
+</html>
